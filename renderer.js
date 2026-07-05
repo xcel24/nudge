@@ -1,30 +1,21 @@
 const buddyEl = document.getElementById('buddy');
 const char = document.getElementById('char');
-const sprite = document.getElementById('sprite');
-
-// Using the original CSS-drawn character (her legs step and her arm lifts the
-// glass). To switch to a PNG image instead, set USE_IMAGE = true.
-const USE_IMAGE = false;
-if (USE_IMAGE) {
-  const probe = new Image();
-  probe.onload = () => { sprite.src = probe.src; char.classList.add('has-image'); };
-  probe.src = 'assets/character.png';
-}
 const bubble = document.getElementById('bubble');
 const bubbleText = document.getElementById('bubble-text');
 const yesBtn = document.getElementById('yes');
 const snoozeBtn = document.getElementById('snooze');
 
-let busy = false; // ignore triggers while an animation sequence is playing
-let soundOn = true; // updated from each reminder/celebrate payload
+let soundOn = true;
+let activeMascot = 'water-girl';
+let currentId = null;          // reminder currently being answered
+let answerResolver = null;     // resolves when the user picks Yes/Snooze
 
 const sfx = (name) => {
   if (!soundOn || !window.Sfx || !window.Sfx[name]) return;
   try { window.Sfx[name](); } catch { /* never let audio break the animation */ }
 };
 
-// Let clicks pass through the transparent window, except when the cursor is
-// over the character or her speech bubble.
+// Clicks pass through the transparent window except over the character/bubble.
 buddyEl.addEventListener('mouseenter', () => window.buddy.setInteractive(true));
 buddyEl.addEventListener('mouseleave', () => window.buddy.setInteractive(false));
 
@@ -35,18 +26,22 @@ function setPose(pose) {
   if (pose) char.classList.add(pose);
 }
 
-// Walk in from off-screen, then take a sip.
+function setMascot(m) {
+  activeMascot = m;
+  document.querySelectorAll('.mascot').forEach((el) =>
+    el.classList.toggle('active', el.dataset.mascot === m));
+}
+
 async function walkIn() {
   buddyEl.classList.remove('hidden');
   buddyEl.classList.remove('entered');
   setPose('walking');
   sfx('steps');
-  // next frame so the transition runs
   await wait(30);
   buddyEl.classList.add('entered');
-  await wait(2400);          // matches the CSS transform transition
+  await wait(2400);              // matches the CSS transform transition
   setPose('sipping');
-  sfx('sip');
+  sfx(activeMascot === 'water-girl' ? 'sip' : 'pill');
   await wait(1600);
   setPose(null);
 }
@@ -54,18 +49,15 @@ async function walkIn() {
 async function walkOut() {
   hideBubble();
   setPose('walking');
-  buddyEl.classList.remove('entered'); // slides back off-screen left
+  buddyEl.classList.remove('entered');
   await wait(2000);
   buddyEl.classList.add('hidden');
   setPose(null);
-  busy = false;
   window.buddy.setInteractive(false);
 }
 
 function showBubble(text, withButtons = false) {
   bubbleText.innerHTML = text;
-  // Yes/Snooze only make sense for the actual question — hide them for
-  // celebrations and acknowledgements.
   document.getElementById('buttons').style.display = withButtons ? 'flex' : 'none';
   bubble.classList.remove('hidden');
   requestAnimationFrame(() => bubble.classList.add('show'));
@@ -89,54 +81,80 @@ function sparkle() {
   }
 }
 
-// ---- Reminder ----
-window.buddy.onShowReminder(async ({ count, goal, sound }) => {
-  if (busy) return;
-  busy = true;
-  soundOn = sound !== false;
-  await walkIn();
-  setPose('idle'); // gentle breathing while she waits for your answer
-  sfx('appear');
-  showBubble(`Did you drink water? 💧<br><small>${count} / ${goal} today</small>`, true);
-});
+// ---- Queue: show reminders one at a time even if several fire together ----
+const queue = [];
+let busy = false;
 
-// ---- Already done for the day ----
-window.buddy.onCelebrate(async ({ goal, streak, sound }) => {
-  if (busy) return;
+function enqueue(kind, data) { queue.push({ kind, data }); pump(); }
+
+async function pump() {
+  if (busy || !queue.length) return;
   busy = true;
-  soundOn = sound !== false;
+  const { kind, data } = queue.shift();
+  try {
+    if (kind === 'reminder') await showReminder(data);
+    else await showCelebrate(data);
+  } finally {
+    busy = false;
+    pump();
+  }
+}
+
+async function showReminder(data) {
+  soundOn = data.sound !== false;
+  setMascot(data.mascot);
+  await walkIn();
+  setPose('idle');
+  sfx('appear');
+  currentId = data.id;
+  showBubble(`${data.prompt} ${data.emoji}<br><small>${data.count} / ${data.goal} today</small>`, true);
+  await new Promise((resolve) => { answerResolver = resolve; }); // wait for Yes/Snooze
+}
+
+async function showCelebrate(data) {
+  soundOn = data.sound !== false;
+  setMascot(data.mascot);
   await walkIn();
   sparkle();
   setPose('happy');
   sfx('celebrate');
-  showBubble(`All ${goal} glasses done! 🎉<br><small>🔥 ${streak}-day streak</small>`);
+  showBubble(`All ${data.name} done! 🎉<br><small>🔥 ${data.streak}-day streak</small>`);
   await wait(3200);
   await walkOut();
-});
+}
 
-// ---- Buttons ----
-yesBtn.addEventListener('click', async () => {
-  const { count, goal, streak } = await window.buddy.respond('yes');
-  hideBubble();
-  sparkle();
-  setPose('happy');
-  sfx('yes');
-  const done = count >= goal;
-  showBubble(
-    done
-      ? `Yay! All ${goal} done! 🎉<br><small>🔥 ${streak}-day streak</small>`
-      : `Yay! ${count} / ${goal} 💪<br><small>Keep it up!</small>`
-  );
-  await wait(2200);
-  await walkOut();
-});
+window.buddy.onShowReminder((d) => enqueue('reminder', d));
+window.buddy.onCelebrate((d) => enqueue('celebrate', d));
 
-snoozeBtn.addEventListener('click', async () => {
-  await window.buddy.respond('snooze');
-  hideBubble();
-  setPose('sad');
-  sfx('snooze');
-  showBubble(`Okay... I'll be back soon 💤`);
-  await wait(1800);
+// ---- Answering ----
+async function onAnswer(answer) {
+  if (!currentId) return;
+  const id = currentId;
+  currentId = null;
+
+  if (answer === 'yes') {
+    const { count, goal, streak } = await window.buddy.respond(id, 'yes');
+    hideBubble();
+    sparkle();
+    setPose('happy');
+    sfx('yes');
+    const done = count >= goal;
+    showBubble(done
+      ? `Yay! All done! 🎉<br><small>🔥 ${streak}-day streak</small>`
+      : `Yay! ${count} / ${goal} 💪<br><small>Keep it up!</small>`);
+    await wait(2200);
+  } else {
+    await window.buddy.respond(id, 'snooze');
+    hideBubble();
+    setPose('sad');
+    sfx('snooze');
+    showBubble(`Okay... I'll be back soon 💤`);
+    await wait(1800);
+  }
+
   await walkOut();
-});
+  if (answerResolver) { const r = answerResolver; answerResolver = null; r(); }
+}
+
+yesBtn.addEventListener('click', () => onAnswer('yes'));
+snoozeBtn.addEventListener('click', () => onAnswer('snooze'));

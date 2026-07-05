@@ -10,7 +10,7 @@ html, body {
   cursor: default;
 }
 
-/* The character sits at the bottom-left and walks in from off-screen. */
+/* The character sits at the bottom-right and walks in from off-screen. */
 #scene { position: absolute; inset: 0; }
 
 #buddy {
@@ -69,208 +69,88 @@ html, body {
 #snooze:hover { filter: brightness(.97); }
 
 /* ---------- Character ---------- */
+/* .char is the animated wrapper; exactly one .mascot is .active at a time.
+   Pose classes (walking/sipping/idle/happy/sad) live on .char and drive
+   whichever mascot is visible, so both characters share one animation set. */
 .char {
   position: relative;
   width: 160px;
   height: 240px;
   transform-origin: bottom center;
 }
+.mascot { position: absolute; inset: 0; display: none; }
+.mascot.active { display: block; }
 
-/* Real artwork mode: show the image, hide the CSS doodle. */
-.sprite {
-  display: none;
-  height: 230px;
-  width: auto;
-  filter: drop-shadow(0 6px 6px rgba(0, 0, 0, .28));
-}
-.char.has-image { width: auto; height: auto; }
-.char.has-image .sprite { display: block; }
-.char.has-image .doodle { display: none; }
-
-/* Image-mode motion. She's one flat drawing, so we sell "alive" with
-   whole-body bob, sway, lean and breathing (rotations pivot at her feet). */
-
-/* Walk: bob up on each step + a gentle side-to-side rock. */
-.char.has-image.walking { animation: walkStep .45s ease-in-out infinite; }
-@keyframes walkStep {
-  0%   { transform: translateY(0)   rotate(-2.5deg); }
-  25%  { transform: translateY(-8px) rotate(0deg); }
-  50%  { transform: translateY(0)   rotate(2.5deg); }
-  75%  { transform: translateY(-8px) rotate(0deg); }
-  100% { transform: translateY(0)   rotate(-2.5deg); }
-}
-
-/* Drink: lean back, tip the glass up, hold, then straighten. */
-.char.has-image.sipping { animation: drinkSeq 1.6s ease-in-out; }
-@keyframes drinkSeq {
-  0%   { transform: translateY(0) rotate(0deg); }
-  30%  { transform: translateY(-3px) rotate(-7deg); }
-  55%  { transform: translateY(-3px) rotate(-9deg); }
-  80%  { transform: translateY(0) rotate(-2deg); }
-  100% { transform: translateY(0) rotate(0deg); }
-}
-
-/* Idle: soft breathing while she waits for your answer. */
-.char.has-image.idle { animation: breathe 2.6s ease-in-out infinite; }
-@keyframes breathe {
-  0%, 100% { transform: translateY(0) scale(1); }
-  50%      { transform: translateY(-2px) scale(1.012); }
-}
-
-/* Happy: bouncy little celebration. */
-.char.has-image.happy { animation: hopJoy .5s ease-in-out 2; }
-@keyframes hopJoy {
-  0%, 100% { transform: translateY(0) rotate(0); }
-  50%      { transform: translateY(-20px) rotate(-4deg); }
-}
-
-/* Sad: droop when snoozed. */
-.char.has-image.sad { animation: droopImg .6s ease forwards; }
-@keyframes droopImg {
-  to { transform: translateY(4px) rotate(3deg); filter: saturate(.85) brightness(.97); }
-}
-
-.hair-back {
-  position: absolute; top: 6px; left: 40px;
-  width: 80px; height: 130px;
-  background: #6b4a3a; border-radius: 45% 45% 40% 40%;
-  z-index: 1;
-}
-.twintail {
-  position: absolute; top: 30px;
-  width: 34px; height: 120px;
-  background: #6b4a3a; border-radius: 20px;
-  z-index: 0;
-}
-.twintail.left  { left: 12px;  transform: rotate(12deg); transform-origin: top center; }
-.twintail.right { left: 114px; transform: rotate(-12deg); transform-origin: top center; }
-
-.head {
-  position: absolute; top: 20px; left: 45px;
-  width: 70px; height: 74px;
-  background: #ffe6d5; border-radius: 46% 46% 48% 48%;
-  z-index: 3;
-}
-.bangs {
-  position: absolute; top: -6px; left: -5px;
-  width: 80px; height: 40px;
-  background: #6b4a3a; border-radius: 44% 44% 50% 50%;
-}
-.eye {
-  position: absolute; top: 34px;
-  width: 12px; height: 16px;
-  background: #3a2b45; border-radius: 50%;
-  z-index: 4;
-}
-.eye.left  { left: 16px; }
-.eye.right { left: 42px; }
-.eye::after {                              /* eye shine */
-  content: ""; position: absolute; top: 2px; left: 3px;
-  width: 4px; height: 4px; background: #fff; border-radius: 50%;
-}
-.blush {
-  position: absolute; top: 48px;
-  width: 12px; height: 7px;
-  background: #ff9bb0; border-radius: 50%; opacity: .8;
-}
-.blush.left  { left: 8px; }
-.blush.right { left: 48px; }
-.mouth {
-  position: absolute; top: 54px; left: 30px;
-  width: 10px; height: 5px;
-  border-bottom: 2px solid #b5654a; border-radius: 0 0 8px 8px;
-}
-
-.body {
-  position: absolute; top: 88px; left: 46px;
-  width: 68px; height: 96px;
-  background: linear-gradient(#7fd0ec, #4fa8d8);
-  border-radius: 24px 24px 14px 14px;
-  z-index: 2;
-}
-
-.arm {
-  position: absolute; top: 120px; left: 96px;
-  width: 20px; height: 46px;
-  background: #ffe6d5; border-radius: 12px;
-  transform-origin: top center;
-  transform: rotate(6deg);
-  transition: transform .5s ease;
-  z-index: 5;
-}
-.glass {
-  position: absolute; bottom: -22px; left: -6px;
-  width: 26px; height: 30px;
-  background: rgba(210, 240, 255, .55);
-  border: 2px solid #cfeaf5;
-  border-radius: 4px 4px 8px 8px;
-  overflow: hidden;
-}
-.water {
-  position: absolute; bottom: 0; left: 0; right: 0;
-  height: 60%;
-  background: #6fc5ec;
-  transition: height .5s ease;
-}
-
-.legs { position: absolute; top: 180px; left: 56px; width: 48px; height: 56px; }
-.leg {
-  position: absolute; top: 0;
-  width: 18px; height: 54px;
-  background: #ffe6d5; border-radius: 10px;
-  transform-origin: top center;
-}
-.leg.left  { left: 0; }
-.leg.right { left: 24px; }
-
-/* ---------- Poses / animations ---------- */
-/* Walking: gentle bob + legs swinging */
+/* ---------- Shared pose animations (apply to the active mascot) ---------- */
 .char.walking { animation: bob .5s ease-in-out infinite; }
 .char.walking .leg.left  { animation: stepA .5s ease-in-out infinite; }
 .char.walking .leg.right { animation: stepB .5s ease-in-out infinite; }
-@keyframes bob {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-6px); }
-}
-@keyframes stepA {
-  0%, 100% { transform: rotate(14deg); }
-  50%      { transform: rotate(-14deg); }
-}
-@keyframes stepB {
-  0%, 100% { transform: rotate(-14deg); }
-  50%      { transform: rotate(14deg); }
-}
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes stepA { 0%, 100% { transform: rotate(14deg); } 50% { transform: rotate(-14deg); } }
+@keyframes stepB { 0%, 100% { transform: rotate(-14deg); } 50% { transform: rotate(14deg); } }
 
-/* Sipping: raise the glass to her mouth, water drops */
+/* "sipping" = the consume/present gesture: raise the held item toward the mouth. */
 .char.sipping .arm { transform: rotate(-96deg) translateY(-6px); }
 .char.sipping .water { height: 20%; }
 .char.sipping { animation: leanSip 1.6s ease-in-out; }
-@keyframes leanSip {
-  0%, 100% { transform: rotate(0deg); }
-  40%, 70% { transform: rotate(-4deg); }
-}
+@keyframes leanSip { 0%, 100% { transform: rotate(0deg); } 40%, 70% { transform: rotate(-4deg); } }
 
-/* Happy: bouncy little celebration */
+/* Idle: soft breathing while waiting for an answer. */
+.char.idle { animation: breathe 2.6s ease-in-out infinite; }
+@keyframes breathe { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-2px) scale(1.012); } }
+
 .char.happy { animation: hop .5s ease-in-out 2; }
-@keyframes hop {
-  0%, 100% { transform: translateY(0) rotate(0); }
-  50%      { transform: translateY(-18px) rotate(-3deg); }
-}
+@keyframes hop { 0%, 100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-18px) rotate(-3deg); } }
 
-/* Sad: droop when snoozed */
 .char.sad { animation: droop .6s ease forwards; }
 .char.sad .arm { transform: rotate(30deg); }
-@keyframes droop {
-  to { transform: translateY(4px) rotate(2deg); filter: saturate(.8); }
-}
+@keyframes droop { to { transform: translateY(4px) rotate(2deg); filter: saturate(.8); } }
 
-/* Sparkles for celebration */
-.sparkle {
-  position: absolute;
-  font-size: 22px;
-  pointer-events: none;
-  animation: floatUp 1s ease-out forwards;
-}
+/* Skin + limbs shared defaults */
+.mascot .head { position: absolute; top: 20px; left: 45px; width: 70px; height: 74px; background: #ffe6d5; border-radius: 46% 46% 48% 48%; z-index: 3; }
+.mascot .eye { position: absolute; top: 34px; width: 12px; height: 16px; background: #3a2b45; border-radius: 50%; z-index: 4; }
+.mascot .eye.left { left: 16px; }
+.mascot .eye.right { left: 42px; }
+.mascot .eye::after { content: ""; position: absolute; top: 2px; left: 3px; width: 4px; height: 4px; background: #fff; border-radius: 50%; }
+.mascot .mouth { position: absolute; top: 54px; left: 30px; width: 10px; height: 5px; border-bottom: 2px solid #b5654a; border-radius: 0 0 8px 8px; }
+.mascot .arm { position: absolute; top: 120px; left: 96px; width: 20px; height: 46px; background: #ffe6d5; border-radius: 12px; transform-origin: top center; transform: rotate(6deg); transition: transform .5s ease; z-index: 5; }
+.mascot .legs { position: absolute; top: 180px; left: 56px; width: 48px; height: 56px; }
+.mascot .leg { position: absolute; top: 0; width: 18px; height: 54px; border-radius: 10px; transform-origin: top center; }
+.mascot .leg.left { left: 0; }
+.mascot .leg.right { left: 24px; }
+
+/* ---------- Water girl ---------- */
+.water-girl .hair-back { position: absolute; top: 6px; left: 40px; width: 80px; height: 130px; background: #6b4a3a; border-radius: 45% 45% 40% 40%; z-index: 1; }
+.water-girl .twintail { position: absolute; top: 30px; width: 34px; height: 120px; background: #6b4a3a; border-radius: 20px; z-index: 0; }
+.water-girl .twintail.left  { left: 12px;  transform: rotate(12deg); transform-origin: top center; }
+.water-girl .twintail.right { left: 114px; transform: rotate(-12deg); transform-origin: top center; }
+.water-girl .bangs { position: absolute; top: -6px; left: -5px; width: 80px; height: 40px; background: #6b4a3a; border-radius: 44% 44% 50% 50%; }
+.water-girl .blush { position: absolute; top: 48px; width: 12px; height: 7px; background: #ff9bb0; border-radius: 50%; opacity: .8; }
+.water-girl .blush.left  { left: 8px; }
+.water-girl .blush.right { left: 48px; }
+.water-girl .body { position: absolute; top: 88px; left: 46px; width: 68px; height: 96px; background: linear-gradient(#7fd0ec, #4fa8d8); border-radius: 24px 24px 14px 14px; z-index: 2; }
+.water-girl .glass { position: absolute; bottom: -22px; left: -6px; width: 26px; height: 30px; background: rgba(210, 240, 255, .55); border: 2px solid #cfeaf5; border-radius: 4px 4px 8px 8px; overflow: hidden; }
+.water-girl .water { position: absolute; bottom: 0; left: 0; right: 0; height: 60%; background: #6fc5ec; transition: height .5s ease; }
+.water-girl .leg { background: #ffe6d5; }
+
+/* ---------- Doctor ---------- */
+.doctor .hair { position: absolute; top: 8px; left: 42px; width: 76px; height: 40px; background: #2f241d; border-radius: 44% 44% 50% 50%; z-index: 2; }
+.doctor .glasses { position: absolute; top: 30px; left: 8px; width: 54px; height: 15px; border: 2px solid #333; border-radius: 6px; background: rgba(200, 220, 255, .25); z-index: 5; }
+.doctor .glasses::after { content: ""; position: absolute; top: 5px; left: 24px; width: 8px; height: 2px; background: #333; }
+.doctor .body { position: absolute; top: 88px; left: 46px; width: 68px; height: 96px; background: #f4f6fa; border-radius: 22px 22px 14px 14px; z-index: 2; box-shadow: inset 0 0 0 1px #dfe4ec; }
+.doctor .lapel { position: absolute; top: 0; width: 20px; height: 40px; background: #e7ecf3; z-index: 3; }
+.doctor .lapel.left  { left: 6px;  transform: skewX(16deg); border-radius: 0 0 0 6px; }
+.doctor .lapel.right { right: 6px; transform: skewX(-16deg); border-radius: 0 0 6px 0; }
+.doctor .steth { position: absolute; top: -2px; left: 15px; width: 38px; height: 40px; border: 3px solid #2b6cb0; border-top: none; border-radius: 0 0 20px 20px; z-index: 4; }
+.doctor .steth-bell { position: absolute; top: 36px; left: 29px; width: 13px; height: 13px; border-radius: 50%; background: #cfd8e3; border: 2px solid #2b6cb0; z-index: 4; }
+.doctor .bottle { position: absolute; bottom: -22px; left: -5px; width: 24px; height: 28px; background: #e8863b; border-radius: 3px; overflow: visible; }
+.doctor .bottle::after { content: ""; position: absolute; top: 8px; left: 3px; width: 18px; height: 12px; background: #fdf1e3; border-radius: 2px; }
+.doctor .bottle-cap { position: absolute; top: -7px; left: 2px; width: 20px; height: 9px; background: #b5651d; border-radius: 2px; }
+.doctor .leg { background: #34435a; }        /* navy scrub trousers */
+.doctor .leg::after { content: ""; position: absolute; bottom: -4px; left: -1px; width: 20px; height: 10px; background: #6b4a3a; border-radius: 4px; } /* shoes */
+
+/* ---------- Sparkles ---------- */
+.sparkle { position: absolute; font-size: 22px; pointer-events: none; animation: floatUp 1s ease-out forwards; }
 @keyframes floatUp {
   0%   { opacity: 1; transform: translateY(0) scale(.6); }
   100% { opacity: 0; transform: translateY(-70px) scale(1.2); }

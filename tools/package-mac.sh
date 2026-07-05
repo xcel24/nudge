@@ -7,7 +7,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-APP="dist/mac-universal/Water Reminder.app"
+APP="dist/mac-universal/Nudge.app"
 
 echo "==> Generating app icon..."
 node tools/make-icon.js
@@ -34,11 +34,11 @@ codesign --deep --force -s - "$APP"
 codesign --verify --deep --strict "$APP" && echo "    signature OK"
 
 echo "==> Packaging DMG..."
-rm -rf dist/dmgroot "dist/Water Reminder.dmg"
+rm -rf dist/dmgroot "dist/Nudge.dmg"
 mkdir -p dist/dmgroot
 cp -R "$APP" dist/dmgroot/
 ln -s /Applications dist/dmgroot/Applications
-hdiutil create -volname "Water Reminder" -srcfolder dist/dmgroot -ov -format UDZO "dist/Water Reminder.dmg" >/dev/null
+hdiutil create -volname "Nudge" -srcfolder dist/dmgroot -ov -format UDZO "dist/Nudge.dmg" >/dev/null
 rm -rf dist/dmgroot
 
-echo "==> Done: dist/Water Reminder.dmg"
+echo "==> Done: dist/Nudge.dmg"

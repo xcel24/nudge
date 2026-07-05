@@ -1,10 +1,11 @@
-# 💧 Water Reminder — Anime Desktop Buddy
+# ⏰ Nudge — a desktop companion for your daily habits
 
-A little anime companion who walks across your Mac's screen, sips her glass, and
-asks whether you've had water yet. Goal: 8 glasses a day, with a **Yes** / **Snooze**.
+Nudge is a macOS menu-bar app where a little character walks across your screen,
+does a gesture, and asks whether you've done a daily habit — **Yes** or **Snooze**.
+Add as many reminders as you like (water, vitamins, stretching…), each with its
+own goal, interval, prompt, and **mascot**.
 
-> **Status:** v1 prototype. The character is a **CSS-drawn placeholder** — the code
-> is built so real anime sprite art can be swapped in later without changing logic.
+> Built with Electron. Characters are drawn in CSS (no image assets needed).
 
 ## Run it
 
@@ -13,27 +14,25 @@ npm install
 npm start
 ```
 
-She'll walk in ~1.5s after launch so you can see the full loop right away.
-The app lives in the **menu bar** (look for the water-drop icon) — no dock icon.
+The first reminder greets you ~1.5s after launch. Nudge lives in the **menu bar**
+(top-right, the 💧 icon) — there's no Dock icon.
 
-## How it works
+## Reminders & settings
 
-- **Menu bar menu:** shows today's progress + streak, and lets you
-  *Remind me now*, *Log a glass (+1)*, *Reset today*, or *Quit*.
-- Every **2 hours** she walks in from the screen edge, sips, and asks.
-- **Yes** → glass count +1, happy reaction, walks off.
-- **Snooze** → she pouts and comes back in **15 min**.
-- Progress is saved and **resets each day**; a **streak** counts consecutive days
-  you hit all 8.
+Menu-bar icon → **Settings…** opens the reminder manager. For each reminder set:
 
-## Settings
+- **Emoji + Name** (e.g. 💊 Multivitamin)
+- **Goal** — times per day (a vitamin is just `1`)
+- **Every** — minutes between nudges
+- **Mascot** — 💧 Water girl or 🩺 Doctor
+- **Prompt** — what she/he asks
 
-Open the menu-bar icon → **Settings…** to change:
-- **Glasses per day** (1–20)
-- **Reminder interval** (minutes)
+Add / delete reminders, toggle **Sound effects**, and hit **Save** — changes apply
+live, no restart. Each reminder tracks its own daily count + streak and goes quiet
+once its goal is met, until the next day. Snooze is 15 min (constant `SNOOZE_MIN`).
 
-These are saved to `settings.json` and applied immediately. Snooze length is
-fixed at 15 min (constant `SNOOZE_MIN` in `main.js`).
+Two reminders ship by default: **Water** (8×/day, water girl) and **Multivitamin**
+(1×/day, doctor).
 
 ## Give it to a friend (build a .dmg)
 
@@ -41,31 +40,30 @@ fixed at 15 min (constant `SNOOZE_MIN` in `main.js`).
 npm run package
 ```
 
-This produces **`dist/Water Reminder.dmg`** — a universal build that runs on
-both Apple Silicon and Intel Macs. Send them that file.
+Produces **`dist/Nudge.dmg`** — a universal build (Apple Silicon + Intel). It's
+**unsigned** (no paid Apple Developer account), so the recipient must clear the
+download quarantine once:
 
-**Important — the app is unsigned** (no paid Apple Developer account), so macOS
-will quarantine it on download. Your friend installs it like this:
+1. Open the `.dmg`, drag **Nudge** into **Applications**.
+2. In Terminal: `xattr -cr "/Applications/Nudge.app"` (or  → System Settings →
+   Privacy & Security → **Open Anyway**).
+3. Open it — look for the 💧 in the top-right menu bar.
 
-1. Open the `.dmg`, drag **Water Reminder** to **Applications**.
-2. Clear the download quarantine (one time), either:
-   - **Right-click the app → Open → Open** in the dialog, or
-   - Run in Terminal: `xattr -cr "/Applications/Water Reminder.app"` then open it.
-3. It lives in the **menu bar**. To auto-start at login: System Settings →
-   General → Login Items → add Water Reminder.
-
-## Files
+## Project layout
 
 | File | Role |
 |------|------|
-| `main.js` | Electron main process — overlay window, menu-bar tray, scheduling, saving progress |
-| `preload.js` | Secure bridge between the window and the main process |
-| `index.html` / `style.css` | The character (CSS placeholder) + speech bubble |
-| `renderer.js` | Walk-in / sip / ask / react animation flow |
+| `main.js` | Electron main — overlay window, tray, per-reminder timers, persistence |
+| `preload.js` / `settings-preload.js` | Secure IPC bridges |
+| `index.html` / `style.css` | Character (mascots) + speech bubble |
+| `renderer.js` | Walk-in / gesture / ask flow + reminder queue |
+| `sounds.js` | Synthesized sound effects (Web Audio, no files) |
+| `settings.html` / `settings.js` | Reminder manager UI |
+| `tools/` | Icon generators + `package-mac.sh` build script |
 
-## Swapping in real anime art later
+## Adding a new mascot
 
-The character is the `#char` element in `index.html`, styled in `style.css`.
-To use real art, replace the CSS parts with sprite-sheet or GIF frames for the
-poses the code already toggles: `walking`, `sipping`, `happy`, `sad`. The rest of
-the app (scheduling, buttons, progress, streaks) stays the same.
+1. Add its markup as a `.mascot` block in `index.html` (reuse part classes
+   `head`/`arm`/`leg` so the shared pose animations apply).
+2. Style it under a scoped selector in `style.css` (see `.doctor`).
+3. Add its id to `MASCOTS` in `main.js`; add a label in `settings.js`.
