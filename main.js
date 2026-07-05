@@ -1,0 +1,268 @@
+const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage } = require('electron');
+const path = require('path');
+const fs = require('fs');
+
+// Let the (gesture-less) overlay play synthesized sound effects.
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
+// ---- Config -------------------------------------------------------------
+const SNOOZE_MIN = 15;                // snooze length (minutes)
+const DEFAULTS = { goal: 8, intervalMin: 90, sound: true }; // used until the user changes them
+
+// User-adjustable settings (persisted); loaded on startup.
+let GOAL = DEFAULTS.goal;                       // glasses per day
+let REMINDER_INTERVAL_MIN = DEFAULTS.intervalMin; // minutes between reminders
+let SOUND = DEFAULTS.sound;                     // play sound effects?
+
+// ---- Persistence --------------------------------------------------------
+const dataFile = () => path.join(app.getPath('userData'), 'progress.json');
+const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
+
+function loadSettings() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(settingsFile(), 'utf8'));
+    return {
+      goal: clampInt(raw.goal, 1, 20, DEFAULTS.goal),
+      intervalMin: clampInt(raw.intervalMin, 5, 480, DEFAULTS.intervalMin),
+      sound: typeof raw.sound === 'boolean' ? raw.sound : DEFAULTS.sound,
+    };
+  } catch {
+    return { ...DEFAULTS };
+  }
+}
+
+function saveSettings(s) {
+  try {
+    fs.writeFileSync(settingsFile(), JSON.stringify(s));
+  } catch (e) {
+    console.error('Could not save settings:', e);
+  }
+}
+
+function clampInt(v, min, max, fallback) {
+  const n = Math.round(Number(v));
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+
+function loadState() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(dataFile(), 'utf8'));
+    if (raw.date !== todayKey()) {
+      // New day: carry the streak, reset the count.
+      const completedYesterday = raw.count >= GOAL;
+      return { date: todayKey(), count: 0, streak: completedYesterday ? raw.streak : 0 };
+    }
+    return raw;
+  } catch {
+    return { date: todayKey(), count: 0, streak: 0 };
+  }
+}
+
+function saveState(state) {
+  try {
+    fs.writeFileSync(dataFile(), JSON.stringify(state));
+  } catch (e) {
+    console.error('Could not save progress:', e);
+  }
+}
+
+let state = { date: todayKey(), count: 0, streak: 0 };
+
+// ---- Windows / tray -----------------------------------------------------
+let win = null;
+let settingsWin = null;
+let tray = null;
+let reminderTimer = null;
+
+function openSettings() {
+  if (settingsWin) { settingsWin.show(); settingsWin.focus(); return; }
+  settingsWin = new BrowserWindow({
+    width: 360,
+    height: 400,
+    resizable: false,
+    title: 'Water Reminder — Settings',
+    webPreferences: {
+      preload: path.join(__dirname, 'settings-preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  settingsWin.loadFile('settings.html');
+  if (process.env.WR_DEBUG) {
+    settingsWin.webContents.on('did-finish-load', () => console.log('[wr] settings window loaded'));
+    settingsWin.webContents.on('console-message', (_e, l, m) => console.log('[settings]', m));
+  }
+  if (app.dock) app.dock.show(); // ensure the window comes to the front
+  settingsWin.on('closed', () => {
+    settingsWin = null;
+    if (app.dock) app.dock.hide();
+  });
+}
+
+function createWindow() {
+  const { bounds } = screen.getPrimaryDisplay();
+  win = new BrowserWindow({
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
+    transparent: true,
+    frame: false,
+    resizable: false,
+    movable: false,
+    focusable: true,
+    hasShadow: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  win.setAlwaysOnTop(true, 'screen-saver');
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  // Whole window is click-through by default; the renderer flips this on
+  // when the cursor is over the character or her buttons.
+  win.setIgnoreMouseEvents(true, { forward: true });
+  win.loadFile('index.html');
+
+  if (process.env.WR_DEBUG) {
+    win.webContents.on('did-finish-load', () => console.log('[wr] renderer loaded'));
+    win.webContents.on('did-fail-load', (_e, code, desc) => console.log('[wr] load FAILED', code, desc));
+    win.webContents.on('console-message', (_e, lvl, msg) => console.log('[renderer]', msg));
+    win.webContents.on('render-process-gone', (_e, d) => console.log('[wr] renderer GONE', d));
+  }
+}
+
+function createTray() {
+  // Water-drop template image (auto-loads @2x for retina); macOS recolors it
+  // for the light/dark menu bar. Generated by tools/make-tray-icon.js.
+  const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayTemplate.png'));
+  icon.setTemplateImage(true);
+  if (process.env.WR_DEBUG) console.log('[wr] tray icon empty?', icon.isEmpty(), 'size', icon.getSize());
+  tray = new Tray(icon);
+  refreshTray();
+}
+
+function refreshTray() {
+  if (!tray) return;
+  const menu = Menu.buildFromTemplate([
+    { label: `💧 Today: ${state.count} / ${GOAL} glasses`, enabled: false },
+    { label: `🔥 Streak: ${state.streak} day${state.streak === 1 ? '' : 's'}`, enabled: false },
+    { type: 'separator' },
+    { label: 'Remind me now', click: () => triggerReminder(true) },
+    { label: 'Log a glass (+1)', click: () => recordDrink() },
+    { label: 'Reset today', click: () => { state.count = 0; saveState(state); refreshTray(); } },
+    { type: 'separator' },
+    { label: 'Settings…', click: () => openSettings() },
+    { label: 'Quit', click: () => app.quit() },
+  ]);
+  tray.setToolTip(`Water Reminder — ${state.count}/${GOAL} today`);
+  tray.setContextMenu(menu);
+}
+
+// ---- Reminder flow ------------------------------------------------------
+function triggerReminder(manual = false) {
+  if (process.env.WR_DEBUG) console.log('[wr] triggerReminder, count=', state.count, 'manual=', manual);
+  // Roll over to a new day if needed.
+  const fresh = loadState();
+  if (fresh.date !== state.date) state = fresh;
+
+  if (state.count >= GOAL) {
+    // Day's goal is met: stay quiet on scheduled ticks and wait for tomorrow.
+    // Only celebrate if the user explicitly asked ("Remind me now").
+    if (manual) {
+      win.webContents.send('celebrate', { count: state.count, goal: GOAL, streak: state.streak, sound: SOUND });
+    }
+  } else {
+    win.webContents.send('show-reminder', { count: state.count, goal: GOAL, streak: state.streak, sound: SOUND });
+  }
+}
+
+function recordDrink() {
+  state.count = Math.min(GOAL, state.count + 1);
+  if (state.count === GOAL) state.streak += 1;
+  saveState(state);
+  refreshTray();
+  return state;
+}
+
+// Single source of truth for the reminder clock. Every call cancels the
+// pending timer first, so there is never more than one outstanding reminder:
+// a Yes, a Snooze, and the heartbeat all *replace* the next appearance rather
+// than stacking. The self-reschedule keeps a heartbeat going even on days the
+// goal is already met, so the app notices the next-day rollover.
+function scheduleNext(minutes = REMINDER_INTERVAL_MIN) {
+  if (reminderTimer) clearTimeout(reminderTimer);
+  reminderTimer = setTimeout(() => {
+    triggerReminder();
+    scheduleNext(); // back to the normal cadence
+  }, minutes * 60 * 1000);
+}
+
+// ---- IPC ----------------------------------------------------------------
+ipcMain.on('set-interactive', (_e, interactive) => {
+  // interactive=true  -> capture the mouse (buttons/character clickable)
+  // interactive=false -> pass clicks through to whatever is behind
+  if (win) win.setIgnoreMouseEvents(!interactive, { forward: true });
+});
+
+ipcMain.handle('response', (_e, answer) => {
+  if (answer === 'yes') {
+    const s = recordDrink();
+    scheduleNext();          // next reminder a full interval from now
+    return { ...s, goal: GOAL };
+  }
+  if (answer === 'snooze') {
+    scheduleNext(SNOOZE_MIN); // she comes back sooner
+  }
+  return { ...state, goal: GOAL };
+});
+
+ipcMain.handle('get-settings', () => ({ goal: GOAL, intervalMin: REMINDER_INTERVAL_MIN, sound: SOUND }));
+
+ipcMain.handle('save-settings', (_e, incoming) => {
+  const next = {
+    goal: clampInt(incoming.goal, 1, 20, GOAL),
+    intervalMin: clampInt(incoming.intervalMin, 5, 480, REMINDER_INTERVAL_MIN),
+    sound: typeof incoming.sound === 'boolean' ? incoming.sound : SOUND,
+  };
+  GOAL = next.goal;
+  REMINDER_INTERVAL_MIN = next.intervalMin;
+  SOUND = next.sound;
+  saveSettings(next);
+  refreshTray();
+  scheduleNext();            // apply the new interval starting now
+  if (settingsWin) settingsWin.close();
+  return next;
+});
+
+// ---- App lifecycle ------------------------------------------------------
+app.whenReady().then(() => {
+  if (app.dock) app.dock.hide(); // menu-bar app, no dock icon
+  const s = loadSettings();
+  GOAL = s.goal;
+  REMINDER_INTERVAL_MIN = s.intervalMin;
+  SOUND = s.sound;
+  state = loadState();
+  saveState(state);
+  createWindow();
+  createTray();
+  scheduleNext();
+
+  // Say hello shortly after launch so you can see her right away.
+  setTimeout(() => triggerReminder(), 1500);
+});
+
+app.on('window-all-closed', (e) => {
+  // Keep running in the menu bar even with no visible window.
+  e.preventDefault?.();
+});

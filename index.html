@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Everything lives at the bottom of a full-screen transparent window. -->
+  <div id="scene">
+    <div id="buddy" class="hidden">
+      <!-- Speech bubble -->
+      <div id="bubble" class="bubble hidden">
+        <p id="bubble-text">Did you drink water? 💧</p>
+        <div id="buttons">
+          <button id="yes">Yes ✅</button>
+          <button id="snooze">Snooze 💤</button>
+        </div>
+      </div>
+
+      <div id="char" class="char">
+        <!-- Real artwork, shown if assets/character.png loads -->
+        <img id="sprite" class="sprite" alt="" />
+
+        <!-- CSS placeholder (fallback when there's no image) -->
+        <div class="doodle">
+          <div class="hair-back"></div>
+          <div class="twintail left"></div>
+          <div class="twintail right"></div>
+          <div class="head">
+            <div class="bangs"></div>
+            <div class="eye left"></div>
+            <div class="eye right"></div>
+            <div class="blush left"></div>
+            <div class="blush right"></div>
+            <div class="mouth"></div>
+          </div>
+          <div class="body"></div>
+          <div class="arm">
+            <div class="glass"><div class="water"></div></div>
+          </div>
+          <div class="legs">
+            <div class="leg left"></div>
+            <div class="leg right"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="sounds.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>

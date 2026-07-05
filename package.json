@@ -1,0 +1,43 @@
+{
+  "name": "water-reminder",
+  "version": "0.1.0",
+  "description": "An anime desktop companion that reminds you to drink water",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --mac",
+    "pack": "electron-builder --dir",
+    "package": "bash tools/package-mac.sh"
+  },
+  "author": "",
+  "license": "MIT",
+  "build": {
+    "appId": "com.prateek.waterreminder",
+    "productName": "Water Reminder",
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "style.css",
+      "renderer.js",
+      "sounds.js",
+      "settings.html",
+      "settings.js",
+      "settings-preload.js",
+      "assets/**/*"
+    ],
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": "universal" }
+      ],
+      "category": "public.app-category.healthcare-fitness",
+      "icon": "build/icon.icns",
+      "identity": null
+    }
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3",
+    "pngjs": "^7.0.0"
+  }
+}
