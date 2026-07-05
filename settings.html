@@ -7,64 +7,104 @@
   <style>
     * { box-sizing: border-box; }
     body {
-      margin: 0;
-      padding: 22px 24px;
+      margin: 0; padding: 18px 20px 92px;
       font-family: -apple-system, "Segoe UI", sans-serif;
-      color: #22323d;
-      background: #f5fbff;
+      color: #22323d; background: #f5fbff;
     }
-    h1 { font-size: 17px; margin: 0 0 4px; }
-    p.sub { margin: 0 0 18px; font-size: 12px; color: #6b8091; }
-    .field { margin-bottom: 18px; }
-    label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
-    .row { display: flex; align-items: center; gap: 10px; }
-    input[type="number"] {
-      width: 80px; padding: 8px 10px; font-size: 15px;
-      border: 2px solid #cfe4ef; border-radius: 10px; background: #fff;
+    h1 { font-size: 18px; margin: 0 0 2px; }
+    p.sub { margin: 0 0 16px; font-size: 12px; color: #6b8091; }
+
+    .card {
+      background: #fff; border: 1px solid #d9e7ef; border-radius: 12px;
+      padding: 10px 12px; margin-bottom: 10px;
     }
-    input[type="number"]:focus { outline: none; border-color: #79c7e3; }
-    .unit { font-size: 13px; color: #6b8091; }
-    .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
-    button {
-      border: none; border-radius: 10px; padding: 9px 16px;
-      font-size: 14px; font-weight: 600; cursor: pointer;
+    .head { display: flex; align-items: center; gap: 8px; }
+    .f-emoji { width: 40px; text-align: center; font-size: 16px; }
+    .f-name { flex: 1; font-weight: 600; }
+    .del {
+      border: none; background: transparent; color: #c0392b;
+      border-radius: 8px; padding: 6px 8px; cursor: pointer; font-size: 15px;
     }
+    .del:hover { background: #fbeaea; }
+
+    /* Collapsed summary line — click to expand. */
+    .summary {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 6px; padding: 2px 2px 0; font-size: 12px; color: #6b8091; cursor: pointer;
+    }
+    .chev { transition: transform .15s ease; color: #9bb0be; }
+    .card.expanded .chev { transform: rotate(180deg); }
+
+    .body { display: none; margin-top: 10px; }
+    .card.expanded .body { display: block; }
+    .row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .row:last-child { margin-bottom: 0; }
+    .card label { font-size: 12px; color: #5a6b78; display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+
+    input, select {
+      border: 2px solid #cfe4ef; border-radius: 8px; background: #fff;
+      padding: 6px 8px; font-size: 13px; color: #22323d;
+    }
+    input:focus, select:focus { outline: none; border-color: #79c7e3; }
+    .f-goal, .f-every { width: 58px; text-align: center; }
+    .f-mascot { flex: 0 0 132px; }
+    .f-prompt { flex: 1; }
+
+    .add {
+      width: 100%; border: 2px dashed #a9d3e6; background: #eef8fd; color: #2b7fb0;
+      border-radius: 10px; padding: 10px; font-size: 14px; font-weight: 600; cursor: pointer;
+      margin-bottom: 16px;
+    }
+    .add:hover { background: #e3f2fb; }
+
+    .soundrow { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .soundrow input { width: 16px; height: 16px; }
+
+    .actions {
+      position: fixed; left: 0; right: 0; bottom: 0;
+      display: flex; justify-content: flex-end; gap: 8px;
+      padding: 12px 20px; background: #eef6fb; border-top: 1px solid #d9e7ef;
+    }
+    .actions button { border: none; border-radius: 10px; padding: 9px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
     #save { background: #4fbf7b; color: #fff; }
-    #cancel { background: #e7edf1; color: #556; }
+    #cancel { background: #e2e9ee; color: #556; }
     button:active { transform: scale(.97); }
   </style>
 </head>
 <body>
-  <h1>💧 Settings</h1>
-  <p class="sub">She'll remind you until you hit your daily goal.</p>
+  <h1>⏰ Nudge</h1>
+  <p class="sub">Tap a reminder to edit it.</p>
 
-  <div class="field">
-    <label for="goal">Glasses per day</label>
-    <div class="row">
-      <input id="goal" type="number" min="1" max="20" step="1" />
-      <span class="unit">glasses</span>
-    </div>
-  </div>
+  <div id="list"></div>
+  <button id="add" class="add">＋ Add reminder</button>
 
-  <div class="field">
-    <label for="interval">Remind me every</label>
-    <div class="row">
-      <input id="interval" type="number" min="5" max="480" step="5" />
-      <span class="unit">minutes</span>
-    </div>
-  </div>
-
-  <div class="field">
-    <label class="row" style="font-weight:600; cursor:pointer;">
-      <input id="sound" type="checkbox" style="width:16px;height:16px;" />
-      Sound effects
-    </label>
-  </div>
+  <label class="soundrow"><input id="sound" type="checkbox" /> Sound effects</label>
 
   <div class="actions">
     <button id="cancel">Cancel</button>
     <button id="save">Save</button>
   </div>
+
+  <template id="card-tpl">
+    <div class="card">
+      <div class="head">
+        <input class="f-emoji" maxlength="2" />
+        <input class="f-name" placeholder="Name (e.g. Water)" />
+        <button class="del" title="Delete">🗑</button>
+      </div>
+      <div class="summary"><span class="sumtext"></span><span class="chev">▾</span></div>
+      <div class="body">
+        <div class="row">
+          <label>Goal <input class="f-goal" type="number" min="1" max="20" /> ×/day</label>
+          <label>Every <input class="f-every" type="number" min="5" max="1440" /> min</label>
+        </div>
+        <div class="row">
+          <select class="f-mascot"></select>
+          <input class="f-prompt" placeholder="What should I ask?" />
+        </div>
+      </div>
+    </div>
+  </template>
 
   <script src="settings.js"></script>
 </body>

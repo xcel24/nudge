@@ -70,6 +70,12 @@
     // A single water droplet (exposed for reuse).
     drop() { drip(0, 0.17); },
 
+    // A soft "pop" — taking a pill / generic acknowledgement.
+    pill() {
+      noiseBurst(0, 0.01, 0.06, 1800);
+      note(300, 0.005, 0.12, { type: 'sine', gain: 0.13, glideTo: 520 });
+    },
+
     // Two realistic droplets for the sip moment.
     sip() {
       drip(0, 0.17, 620, 1550);

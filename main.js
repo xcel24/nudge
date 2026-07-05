@@ -6,38 +6,32 @@ const fs = require('fs');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 // ---- Config -------------------------------------------------------------
-const SNOOZE_MIN = 15;                // snooze length (minutes)
-const DEFAULTS = { goal: 8, intervalMin: 90, sound: true }; // used until the user changes them
+const SNOOZE_MIN = 15;                 // global snooze length (minutes)
+const MASCOTS = ['water-girl', 'doctor', 'trainer', 'default']; // built-in characters
+const DEFAULT_MASCOT = 'default';
 
-// User-adjustable settings (persisted); loaded on startup.
-let GOAL = DEFAULTS.goal;                       // glasses per day
-let REMINDER_INTERVAL_MIN = DEFAULTS.intervalMin; // minutes between reminders
-let SOUND = DEFAULTS.sound;                     // play sound effects?
+// A "reminder" is any daily habit: name, emoji, per-day goal, how often to
+// nudge, which mascot walks in, and what she/he asks.
+const DEFAULT_REMINDERS = [
+  { id: 'water',    name: 'Water',        emoji: '💧', goal: 8, everyMin: 90,  mascot: 'water-girl', prompt: 'Did you drink water?' },
+  { id: 'vitamin',  name: 'Multivitamin', emoji: '💊', goal: 1, everyMin: 240, mascot: 'doctor',     prompt: 'Did you take your vitamin?' },
+  { id: 'exercise', name: 'Exercise',     emoji: '🏋️', goal: 1, everyMin: 300, mascot: 'trainer',    prompt: 'Time to move your body?' },
+];
+
+let SOUND = true;
+let reminders = clone(DEFAULT_REMINDERS);
 
 // ---- Persistence --------------------------------------------------------
 const dataFile = () => path.join(app.getPath('userData'), 'progress.json');
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
 
-function loadSettings() {
-  try {
-    const raw = JSON.parse(fs.readFileSync(settingsFile(), 'utf8'));
-    return {
-      goal: clampInt(raw.goal, 1, 20, DEFAULTS.goal),
-      intervalMin: clampInt(raw.intervalMin, 5, 480, DEFAULTS.intervalMin),
-      sound: typeof raw.sound === 'boolean' ? raw.sound : DEFAULTS.sound,
-    };
-  } catch {
-    return { ...DEFAULTS };
-  }
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 }
 
-function saveSettings(s) {
-  try {
-    fs.writeFileSync(settingsFile(), JSON.stringify(s));
-  } catch (e) {
-    console.error('Could not save settings:', e);
-  }
-}
+function clone(x) { return JSON.parse(JSON.stringify(x)); }
+function genId() { return 'r' + Math.random().toString(36).slice(2, 9); }
 
 function clampInt(v, min, max, fallback) {
   const n = Math.round(Number(v));
@@ -45,224 +39,249 @@ function clampInt(v, min, max, fallback) {
   return Math.min(max, Math.max(min, n));
 }
 
-function todayKey() {
-  const d = new Date();
-  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+function normalizeReminder(r) {
+  if (!r || typeof r !== 'object') return null;
+  const name = String(r.name || '').trim() || 'Reminder';
+  return {
+    id: r.id || genId(),
+    name,
+    emoji: String(r.emoji || '⏰').trim() || '⏰',
+    goal: clampInt(r.goal, 1, 20, 1),
+    everyMin: clampInt(r.everyMin ?? r.intervalMin, 5, 1440, 90),
+    mascot: MASCOTS.includes(r.mascot) ? r.mascot : DEFAULT_MASCOT,
+    prompt: String(r.prompt || '').trim() || `Time for ${name}?`,
+  };
 }
+
+function loadSettings() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(settingsFile(), 'utf8'));
+    if (Array.isArray(raw.reminders)) {
+      const list = raw.reminders.map(normalizeReminder).filter(Boolean);
+      return { sound: raw.sound !== false, reminders: list.length ? list : clone(DEFAULT_REMINDERS) };
+    }
+    // Migrate the old single-goal format.
+    if (raw.goal || raw.intervalMin) {
+      return {
+        sound: raw.sound !== false,
+        reminders: [normalizeReminder({
+          id: 'water', name: 'Water', emoji: '💧', goal: raw.goal,
+          everyMin: raw.intervalMin, mascot: 'water-girl', prompt: 'Did you drink water?',
+        })],
+      };
+    }
+    return { sound: true, reminders: clone(DEFAULT_REMINDERS) };
+  } catch {
+    return { sound: true, reminders: clone(DEFAULT_REMINDERS) };
+  }
+}
+
+function saveSettings() {
+  try {
+    fs.writeFileSync(settingsFile(), JSON.stringify({ sound: SOUND, reminders }));
+  } catch (e) { console.error('Could not save settings:', e); }
+}
+
+// Progress: { date, byId: { [reminderId]: { count, streak } } }
+let state = { date: todayKey(), byId: {} };
 
 function loadState() {
-  try {
-    const raw = JSON.parse(fs.readFileSync(dataFile(), 'utf8'));
-    if (raw.date !== todayKey()) {
-      // New day: carry the streak, reset the count.
-      const completedYesterday = raw.count >= GOAL;
-      return { date: todayKey(), count: 0, streak: completedYesterday ? raw.streak : 0 };
+  let raw = null;
+  try { raw = JSON.parse(fs.readFileSync(dataFile(), 'utf8')); } catch {}
+  const today = todayKey();
+  const out = { date: today, byId: {} };
+  for (const r of reminders) {
+    const prev = raw && raw.byId && raw.byId[r.id];
+    if (raw && raw.date === today && prev) {
+      out.byId[r.id] = { count: prev.count, streak: prev.streak };
+    } else {
+      const completed = prev && prev.count >= r.goal;   // carry streak if yesterday was completed
+      out.byId[r.id] = { count: 0, streak: completed ? prev.streak : 0 };
     }
-    return raw;
-  } catch {
-    return { date: todayKey(), count: 0, streak: 0 };
   }
+  return out;
 }
 
-function saveState(state) {
-  try {
-    fs.writeFileSync(dataFile(), JSON.stringify(state));
-  } catch (e) {
-    console.error('Could not save progress:', e);
-  }
+function saveState() {
+  try { fs.writeFileSync(dataFile(), JSON.stringify(state)); }
+  catch (e) { console.error('Could not save progress:', e); }
 }
 
-let state = { date: todayKey(), count: 0, streak: 0 };
+function rolloverIfNeeded() {
+  if (state.date !== todayKey()) { state = loadState(); saveState(); }
+}
+
+// Keep in-memory progress in sync with the current reminder list (after edits).
+function reconcileState() {
+  if (state.date !== todayKey()) { state = loadState(); return; }
+  const byId = {};
+  for (const r of reminders) byId[r.id] = state.byId[r.id] || { count: 0, streak: 0 };
+  state.byId = byId;
+  saveState();
+}
+
+const reminderById = (id) => reminders.find((r) => r.id === id);
 
 // ---- Windows / tray -----------------------------------------------------
 let win = null;
 let settingsWin = null;
 let tray = null;
-let reminderTimer = null;
-
-function openSettings() {
-  if (settingsWin) { settingsWin.show(); settingsWin.focus(); return; }
-  settingsWin = new BrowserWindow({
-    width: 360,
-    height: 400,
-    resizable: false,
-    title: 'Water Reminder — Settings',
-    webPreferences: {
-      preload: path.join(__dirname, 'settings-preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-  });
-  settingsWin.loadFile('settings.html');
-  if (process.env.WR_DEBUG) {
-    settingsWin.webContents.on('did-finish-load', () => console.log('[wr] settings window loaded'));
-    settingsWin.webContents.on('console-message', (_e, l, m) => console.log('[settings]', m));
-  }
-  if (app.dock) app.dock.show(); // ensure the window comes to the front
-  settingsWin.on('closed', () => {
-    settingsWin = null;
-    if (app.dock) app.dock.hide();
-  });
-}
+const timers = new Map();
 
 function createWindow() {
   const { bounds } = screen.getPrimaryDisplay();
   win = new BrowserWindow({
-    x: bounds.x,
-    y: bounds.y,
-    width: bounds.width,
-    height: bounds.height,
-    transparent: true,
-    frame: false,
-    resizable: false,
-    movable: false,
-    focusable: true,
-    hasShadow: false,
-    skipTaskbar: true,
-    alwaysOnTop: true,
+    x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height,
+    transparent: true, frame: false, resizable: false, movable: false,
+    focusable: true, hasShadow: false, skipTaskbar: true, alwaysOnTop: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
+      contextIsolation: true, nodeIntegration: false,
     },
   });
-
   win.setAlwaysOnTop(true, 'screen-saver');
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  // Whole window is click-through by default; the renderer flips this on
-  // when the cursor is over the character or her buttons.
   win.setIgnoreMouseEvents(true, { forward: true });
   win.loadFile('index.html');
+}
 
-  if (process.env.WR_DEBUG) {
-    win.webContents.on('did-finish-load', () => console.log('[wr] renderer loaded'));
-    win.webContents.on('did-fail-load', (_e, code, desc) => console.log('[wr] load FAILED', code, desc));
-    win.webContents.on('console-message', (_e, lvl, msg) => console.log('[renderer]', msg));
-    win.webContents.on('render-process-gone', (_e, d) => console.log('[wr] renderer GONE', d));
-  }
+function openSettings() {
+  if (settingsWin) { settingsWin.show(); settingsWin.focus(); return; }
+  settingsWin = new BrowserWindow({
+    width: 480, height: 600, resizable: false, title: 'Nudge — Settings',
+    webPreferences: {
+      preload: path.join(__dirname, 'settings-preload.js'),
+      contextIsolation: true, nodeIntegration: false,
+    },
+  });
+  settingsWin.loadFile('settings.html');
+  if (app.dock) app.dock.show();
+  settingsWin.on('closed', () => { settingsWin = null; if (app.dock) app.dock.hide(); });
 }
 
 function createTray() {
-  // Water-drop template image (auto-loads @2x for retina); macOS recolors it
-  // for the light/dark menu bar. Generated by tools/make-tray-icon.js.
   const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayTemplate.png'));
   icon.setTemplateImage(true);
-  if (process.env.WR_DEBUG) console.log('[wr] tray icon empty?', icon.isEmpty(), 'size', icon.getSize());
   tray = new Tray(icon);
   refreshTray();
 }
 
 function refreshTray() {
   if (!tray) return;
-  const menu = Menu.buildFromTemplate([
-    { label: `💧 Today: ${state.count} / ${GOAL} glasses`, enabled: false },
-    { label: `🔥 Streak: ${state.streak} day${state.streak === 1 ? '' : 's'}`, enabled: false },
-    { type: 'separator' },
-    { label: 'Remind me now', click: () => triggerReminder(true) },
-    { label: 'Log a glass (+1)', click: () => recordDrink() },
-    { label: 'Reset today', click: () => { state.count = 0; saveState(state); refreshTray(); } },
-    { type: 'separator' },
-    { label: 'Settings…', click: () => openSettings() },
-    { label: 'Quit', click: () => app.quit() },
-  ]);
-  tray.setToolTip(`Water Reminder — ${state.count}/${GOAL} today`);
-  tray.setContextMenu(menu);
+  const items = [];
+  for (const r of reminders) {
+    const p = state.byId[r.id] || { count: 0, streak: 0 };
+    const done = p.count >= r.goal ? ' ✓' : '';
+    items.push({ label: `${r.emoji} ${r.name}: ${p.count}/${r.goal}${done}`, enabled: false });
+  }
+  items.push({ type: 'separator' });
+  items.push({
+    label: 'Nudge me now',
+    submenu: reminders.map((r) => ({ label: `${r.emoji} ${r.name}`, click: () => triggerReminder(r.id, true) })),
+  });
+  items.push({ label: 'Reset today', click: () => { for (const id in state.byId) state.byId[id].count = 0; saveState(); refreshTray(); } });
+  items.push({ type: 'separator' });
+  items.push({ label: 'Settings…', click: () => openSettings() });
+  items.push({ label: 'Quit', click: () => app.quit() });
+  tray.setToolTip('Nudge');
+  tray.setContextMenu(Menu.buildFromTemplate(items));
 }
 
 // ---- Reminder flow ------------------------------------------------------
-function triggerReminder(manual = false) {
-  if (process.env.WR_DEBUG) console.log('[wr] triggerReminder, count=', state.count, 'manual=', manual);
-  // Roll over to a new day if needed.
-  const fresh = loadState();
-  if (fresh.date !== state.date) state = fresh;
+function payload(r) {
+  const p = state.byId[r.id] || { count: 0, streak: 0 };
+  return {
+    id: r.id, name: r.name, emoji: r.emoji, prompt: r.prompt, mascot: r.mascot,
+    goal: r.goal, count: p.count, streak: p.streak, sound: SOUND,
+  };
+}
 
-  if (state.count >= GOAL) {
-    // Day's goal is met: stay quiet on scheduled ticks and wait for tomorrow.
-    // Only celebrate if the user explicitly asked ("Remind me now").
-    if (manual) {
-      win.webContents.send('celebrate', { count: state.count, goal: GOAL, streak: state.streak, sound: SOUND });
-    }
+function triggerReminder(id, manual = false) {
+  const r = reminderById(id);
+  if (!r || !win) return;
+  rolloverIfNeeded();
+  const p = state.byId[id] || { count: 0, streak: 0 };
+  if (process.env.WR_DEBUG) console.log('[wr] trigger', id, 'count', p.count, 'manual', manual);
+  if (p.count >= r.goal) {
+    if (manual) win.webContents.send('celebrate', payload(r));   // quiet on scheduled ticks once done
   } else {
-    win.webContents.send('show-reminder', { count: state.count, goal: GOAL, streak: state.streak, sound: SOUND });
+    win.webContents.send('show-reminder', payload(r));
   }
 }
 
-function recordDrink() {
-  state.count = Math.min(GOAL, state.count + 1);
-  if (state.count === GOAL) state.streak += 1;
-  saveState(state);
+function recordDone(id) {
+  const r = reminderById(id);
+  if (!r) return { count: 0, streak: 0 };
+  const p = state.byId[id] || (state.byId[id] = { count: 0, streak: 0 });
+  p.count = Math.min(r.goal, p.count + 1);
+  if (p.count === r.goal) p.streak += 1;
+  saveState();
   refreshTray();
-  return state;
+  return p;
 }
 
-// Single source of truth for the reminder clock. Every call cancels the
-// pending timer first, so there is never more than one outstanding reminder:
-// a Yes, a Snooze, and the heartbeat all *replace* the next appearance rather
-// than stacking. The self-reschedule keeps a heartbeat going even on days the
-// goal is already met, so the app notices the next-day rollover.
-function scheduleNext(minutes = REMINDER_INTERVAL_MIN) {
-  if (reminderTimer) clearTimeout(reminderTimer);
-  reminderTimer = setTimeout(() => {
-    triggerReminder();
-    scheduleNext(); // back to the normal cadence
-  }, minutes * 60 * 1000);
+function scheduleNext(id, minutes) {
+  const r = reminderById(id);
+  if (!r) return;
+  clearTimeout(timers.get(id));
+  const ms = (minutes ?? r.everyMin) * 60 * 1000;
+  timers.set(id, setTimeout(() => { triggerReminder(id); scheduleNext(id); }, ms));
+}
+
+function scheduleAll() {
+  for (const t of timers.values()) clearTimeout(t);
+  timers.clear();
+  for (const r of reminders) scheduleNext(r.id);
 }
 
 // ---- IPC ----------------------------------------------------------------
 ipcMain.on('set-interactive', (_e, interactive) => {
-  // interactive=true  -> capture the mouse (buttons/character clickable)
-  // interactive=false -> pass clicks through to whatever is behind
   if (win) win.setIgnoreMouseEvents(!interactive, { forward: true });
 });
 
-ipcMain.handle('response', (_e, answer) => {
+ipcMain.handle('response', (_e, { id, answer }) => {
+  const r = reminderById(id);
+  if (!r) return {};
   if (answer === 'yes') {
-    const s = recordDrink();
-    scheduleNext();          // next reminder a full interval from now
-    return { ...s, goal: GOAL };
+    const p = recordDone(id);
+    scheduleNext(id);                 // next nudge a full interval from now
+    return { count: p.count, streak: p.streak, goal: r.goal };
   }
-  if (answer === 'snooze') {
-    scheduleNext(SNOOZE_MIN); // she comes back sooner
-  }
-  return { ...state, goal: GOAL };
+  if (answer === 'snooze') scheduleNext(id, SNOOZE_MIN);
+  const p = state.byId[id] || { count: 0, streak: 0 };
+  return { count: p.count, streak: p.streak, goal: r.goal };
 });
 
-ipcMain.handle('get-settings', () => ({ goal: GOAL, intervalMin: REMINDER_INTERVAL_MIN, sound: SOUND }));
+ipcMain.handle('get-settings', () => ({ sound: SOUND, reminders, mascots: MASCOTS }));
 
 ipcMain.handle('save-settings', (_e, incoming) => {
-  const next = {
-    goal: clampInt(incoming.goal, 1, 20, GOAL),
-    intervalMin: clampInt(incoming.intervalMin, 5, 480, REMINDER_INTERVAL_MIN),
-    sound: typeof incoming.sound === 'boolean' ? incoming.sound : SOUND,
-  };
-  GOAL = next.goal;
-  REMINDER_INTERVAL_MIN = next.intervalMin;
-  SOUND = next.sound;
-  saveSettings(next);
+  SOUND = incoming && incoming.sound !== false;
+  const list = (incoming && Array.isArray(incoming.reminders) ? incoming.reminders : [])
+    .map(normalizeReminder).filter(Boolean);
+  reminders = list.length ? list : clone(DEFAULT_REMINDERS);
+  saveSettings();
+  reconcileState();
   refreshTray();
-  scheduleNext();            // apply the new interval starting now
+  scheduleAll();
   if (settingsWin) settingsWin.close();
-  return next;
+  return { sound: SOUND, reminders };
 });
 
 // ---- App lifecycle ------------------------------------------------------
 app.whenReady().then(() => {
-  if (app.dock) app.dock.hide(); // menu-bar app, no dock icon
+  if (app.dock) app.dock.hide();
   const s = loadSettings();
-  GOAL = s.goal;
-  REMINDER_INTERVAL_MIN = s.intervalMin;
   SOUND = s.sound;
+  reminders = s.reminders;
+  saveSettings();
   state = loadState();
-  saveState(state);
+  saveState();
   createWindow();
   createTray();
-  scheduleNext();
+  scheduleAll();
 
-  // Say hello shortly after launch so you can see her right away.
-  setTimeout(() => triggerReminder(), 1500);
+  // Greet with the first reminder shortly after launch.
+  if (reminders[0]) setTimeout(() => triggerReminder(reminders[0].id), 1500);
 });
 
-app.on('window-all-closed', (e) => {
-  // Keep running in the menu bar even with no visible window.
-  e.preventDefault?.();
-});
+app.on('window-all-closed', (e) => { e.preventDefault?.(); });

@@ -7,7 +7,6 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- Everything lives at the bottom of a full-screen transparent window. -->
   <div id="scene">
     <div id="buddy" class="hidden">
       <!-- Speech bubble -->
@@ -19,12 +18,10 @@
         </div>
       </div>
 
+      <!-- Character: one active mascot at a time -->
       <div id="char" class="char">
-        <!-- Real artwork, shown if assets/character.png loads -->
-        <img id="sprite" class="sprite" alt="" />
-
-        <!-- CSS placeholder (fallback when there's no image) -->
-        <div class="doodle">
+        <!-- Water girl -->
+        <div class="mascot water-girl active" data-mascot="water-girl">
           <div class="hair-back"></div>
           <div class="twintail left"></div>
           <div class="twintail right"></div>
@@ -40,6 +37,45 @@
           <div class="arm">
             <div class="glass"><div class="water"></div></div>
           </div>
+          <div class="legs">
+            <div class="leg left"></div>
+            <div class="leg right"></div>
+          </div>
+        </div>
+
+        <!-- Doctor (image mascot) -->
+        <div class="mascot doctor" data-mascot="doctor">
+          <img class="sprite" src="assets/doctor.png" alt="" />
+        </div>
+
+        <!-- Gym trainer -->
+        <div class="mascot trainer" data-mascot="trainer">
+          <div class="hair"></div>
+          <div class="headband"></div>
+          <div class="head">
+            <div class="eye left"></div>
+            <div class="eye right"></div>
+            <div class="mouth"></div>
+          </div>
+          <div class="body"></div>
+          <div class="shorts"></div>
+          <div class="arm"><div class="dumbbell"></div></div>
+          <div class="legs">
+            <div class="leg left"></div>
+            <div class="leg right"></div>
+          </div>
+        </div>
+
+        <!-- Default buddy (fallback mascot) -->
+        <div class="mascot default" data-mascot="default">
+          <div class="hair"></div>
+          <div class="head">
+            <div class="eye left"></div>
+            <div class="eye right"></div>
+            <div class="mouth"></div>
+          </div>
+          <div class="body"></div>
+          <div class="arm"><div class="bell"></div></div>
           <div class="legs">
             <div class="leg left"></div>
             <div class="leg right"></div>

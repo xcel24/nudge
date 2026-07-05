@@ -6,6 +6,6 @@ contextBridge.exposeInMainWorld('buddy', {
   onCelebrate: (cb) => ipcRenderer.on('celebrate', (_e, data) => cb(data)),
 
   // renderer -> main
-  respond: (answer) => ipcRenderer.invoke('response', answer),
+  respond: (id, answer) => ipcRenderer.invoke('response', { id, answer }),
   setInteractive: (interactive) => ipcRenderer.send('set-interactive', interactive),
 });

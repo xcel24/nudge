@@ -1,7 +1,7 @@
 {
-  "name": "water-reminder",
-  "version": "0.1.0",
-  "description": "An anime desktop companion that reminds you to drink water",
+  "name": "nudge",
+  "version": "0.2.0",
+  "description": "A desktop companion that nudges you about your daily habits — each with its own mascot",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -12,8 +12,8 @@
   "author": "",
   "license": "MIT",
   "build": {
-    "appId": "com.prateek.waterreminder",
-    "productName": "Water Reminder",
+    "appId": "com.prateek.nudge",
+    "productName": "Nudge",
     "files": [
       "main.js",
       "preload.js",
