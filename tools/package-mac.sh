@@ -9,8 +9,7 @@ cd "$(dirname "$0")/.."
 
 APP="dist/mac-universal/Nudge.app"
 
-echo "==> Generating app icon..."
-node tools/make-icon.js
+echo "==> Building app icon (from assets/icon-1024.png)..."
 ICONSET="build/icon.iconset"
 rm -rf "$ICONSET"; mkdir -p "$ICONSET"
 sips -z 16 16   assets/icon-1024.png --out "$ICONSET/icon_16x16.png"      >/dev/null

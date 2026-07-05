@@ -24,15 +24,15 @@ Menu-bar icon → **Settings…** opens the reminder manager. For each reminder 
 - **Emoji + Name** (e.g. 💊 Multivitamin)
 - **Goal** — times per day (a vitamin is just `1`)
 - **Every** — minutes between nudges
-- **Mascot** — 💧 Water girl or 🩺 Doctor
+- **Mascot** — 💧 Water girl, 🩺 Doctor, 🏋️ Gym trainer, or 🙂 Buddy (default)
 - **Prompt** — what she/he asks
 
 Add / delete reminders, toggle **Sound effects**, and hit **Save** — changes apply
 live, no restart. Each reminder tracks its own daily count + streak and goes quiet
 once its goal is met, until the next day. Snooze is 15 min (constant `SNOOZE_MIN`).
 
-Two reminders ship by default: **Water** (8×/day, water girl) and **Multivitamin**
-(1×/day, doctor).
+Three reminders ship by default: **Water** (water girl), **Multivitamin** (doctor),
+and **Exercise** (gym trainer).
 
 ## Give it to a friend (build a .dmg)
 
@@ -63,7 +63,13 @@ download quarantine once:
 
 ## Adding a new mascot
 
-1. Add its markup as a `.mascot` block in `index.html` (reuse part classes
-   `head`/`arm`/`leg` so the shared pose animations apply).
-2. Style it under a scoped selector in `style.css` (see `.doctor`).
-3. Add its id to `MASCOTS` in `main.js`; add a label in `settings.js`.
+Mascots can be **CSS-drawn** (like `water-girl`/`trainer`, whose limbs animate) or
+a **transparent image** (like `doctor`, animated as a whole body).
+
+1. Add a `.mascot` block in `index.html`:
+   - CSS mascot: reuse part classes `head`/`arm`/`leg` so the shared pose
+     animations apply, and scope its styles in `style.css` (see `.trainer`).
+   - Image mascot: `<img class="sprite" src="assets/NAME.png">`, after cutting out
+     the background (`node tools/remove-bg.js in.png assets/NAME.png` then
+     `node tools/trim.js assets/NAME.png`).
+2. Add its id to `MASCOTS` in `main.js`; add a label in `settings.js`.

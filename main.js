@@ -7,13 +7,15 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 // ---- Config -------------------------------------------------------------
 const SNOOZE_MIN = 15;                 // global snooze length (minutes)
-const MASCOTS = ['water-girl', 'doctor']; // built-in characters
+const MASCOTS = ['water-girl', 'doctor', 'trainer', 'default']; // built-in characters
+const DEFAULT_MASCOT = 'default';
 
 // A "reminder" is any daily habit: name, emoji, per-day goal, how often to
 // nudge, which mascot walks in, and what she/he asks.
 const DEFAULT_REMINDERS = [
-  { id: 'water',   name: 'Water',        emoji: '💧', goal: 8, everyMin: 90,  mascot: 'water-girl', prompt: 'Did you drink water?' },
-  { id: 'vitamin', name: 'Multivitamin', emoji: '💊', goal: 1, everyMin: 240, mascot: 'doctor',     prompt: 'Did you take your vitamin?' },
+  { id: 'water',    name: 'Water',        emoji: '💧', goal: 8, everyMin: 90,  mascot: 'water-girl', prompt: 'Did you drink water?' },
+  { id: 'vitamin',  name: 'Multivitamin', emoji: '💊', goal: 1, everyMin: 240, mascot: 'doctor',     prompt: 'Did you take your vitamin?' },
+  { id: 'exercise', name: 'Exercise',     emoji: '🏋️', goal: 1, everyMin: 300, mascot: 'trainer',    prompt: 'Time to move your body?' },
 ];
 
 let SOUND = true;
@@ -46,7 +48,7 @@ function normalizeReminder(r) {
     emoji: String(r.emoji || '⏰').trim() || '⏰',
     goal: clampInt(r.goal, 1, 20, 1),
     everyMin: clampInt(r.everyMin ?? r.intervalMin, 5, 1440, 90),
-    mascot: MASCOTS.includes(r.mascot) ? r.mascot : 'water-girl',
+    mascot: MASCOTS.includes(r.mascot) ? r.mascot : DEFAULT_MASCOT,
     prompt: String(r.prompt || '').trim() || `Time for ${name}?`,
   };
 }

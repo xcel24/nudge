@@ -133,21 +133,49 @@ html, body {
 .water-girl .water { position: absolute; bottom: 0; left: 0; right: 0; height: 60%; background: #6fc5ec; transition: height .5s ease; }
 .water-girl .leg { background: #ffe6d5; }
 
-/* ---------- Doctor ---------- */
-.doctor .hair { position: absolute; top: 8px; left: 42px; width: 76px; height: 40px; background: #2f241d; border-radius: 44% 44% 50% 50%; z-index: 2; }
-.doctor .glasses { position: absolute; top: 30px; left: 8px; width: 54px; height: 15px; border: 2px solid #333; border-radius: 6px; background: rgba(200, 220, 255, .25); z-index: 5; }
-.doctor .glasses::after { content: ""; position: absolute; top: 5px; left: 24px; width: 8px; height: 2px; background: #333; }
-.doctor .body { position: absolute; top: 88px; left: 46px; width: 68px; height: 96px; background: #f4f6fa; border-radius: 22px 22px 14px 14px; z-index: 2; box-shadow: inset 0 0 0 1px #dfe4ec; }
-.doctor .lapel { position: absolute; top: 0; width: 20px; height: 40px; background: #e7ecf3; z-index: 3; }
-.doctor .lapel.left  { left: 6px;  transform: skewX(16deg); border-radius: 0 0 0 6px; }
-.doctor .lapel.right { right: 6px; transform: skewX(-16deg); border-radius: 0 0 6px 0; }
-.doctor .steth { position: absolute; top: -2px; left: 15px; width: 38px; height: 40px; border: 3px solid #2b6cb0; border-top: none; border-radius: 0 0 20px 20px; z-index: 4; }
-.doctor .steth-bell { position: absolute; top: 36px; left: 29px; width: 13px; height: 13px; border-radius: 50%; background: #cfd8e3; border: 2px solid #2b6cb0; z-index: 4; }
-.doctor .bottle { position: absolute; bottom: -22px; left: -5px; width: 24px; height: 28px; background: #e8863b; border-radius: 3px; overflow: visible; }
-.doctor .bottle::after { content: ""; position: absolute; top: 8px; left: 3px; width: 18px; height: 12px; background: #fdf1e3; border-radius: 2px; }
-.doctor .bottle-cap { position: absolute; top: -7px; left: 2px; width: 20px; height: 9px; background: #b5651d; border-radius: 2px; }
-.doctor .leg { background: #34435a; }        /* navy scrub trousers */
-.doctor .leg::after { content: ""; position: absolute; bottom: -4px; left: -1px; width: 20px; height: 10px; background: #6b4a3a; border-radius: 4px; } /* shoes */
+/* ---------- Gym trainer ---------- */
+.trainer .hair { position: absolute; top: 6px; left: 40px; width: 80px; height: 34px; background: #3a2a1e; border-radius: 44% 44% 50% 50%; z-index: 2; }
+.trainer .headband { position: absolute; top: 30px; left: 43px; width: 74px; height: 11px; background: #e5484d; border-radius: 3px; z-index: 4; }
+.trainer .body { position: absolute; top: 88px; left: 48px; width: 64px; height: 92px; background: #e5484d; border-radius: 20px 20px 12px 12px; z-index: 2; }
+.trainer .body::before, .trainer .body::after { content: ""; position: absolute; top: -6px; width: 12px; height: 22px; background: #e5484d; }  /* tank straps */
+.trainer .body::before { left: 8px; }
+.trainer .body::after { right: 8px; }
+.trainer .shorts { position: absolute; top: 170px; left: 52px; width: 56px; height: 22px; background: #2c3e50; border-radius: 8px; z-index: 3; }
+.trainer .dumbbell { position: absolute; bottom: -14px; left: -8px; width: 36px; height: 6px; background: #556; border-radius: 3px; }
+.trainer .dumbbell::before, .trainer .dumbbell::after { content: ""; position: absolute; top: -7px; width: 10px; height: 20px; background: #333; border-radius: 3px; }
+.trainer .dumbbell::before { left: -6px; }
+.trainer .dumbbell::after { right: -6px; }
+.trainer .leg { background: #ffe6d5; }
+.trainer .leg::after { content: ""; position: absolute; bottom: -4px; left: -1px; width: 20px; height: 10px; background: #fff; border: 1px solid #dcdcdc; border-radius: 5px; }  /* sneakers */
+
+/* ---------- Default buddy (fallback) ---------- */
+.default .hair { position: absolute; top: 6px; left: 40px; width: 80px; height: 38px; background: #4a3a2e; border-radius: 44% 44% 50% 50%; z-index: 2; }
+.default .body { position: absolute; top: 88px; left: 46px; width: 68px; height: 96px; background: linear-gradient(#a78bfa, #8b6ef0); border-radius: 24px 24px 14px 14px; z-index: 2; }
+.default .bell { position: absolute; bottom: -20px; left: -6px; width: 24px; height: 21px; background: #f5c542; border-radius: 50% 50% 22% 22% / 62% 62% 22% 22%; }
+.default .bell::before { content: ""; position: absolute; top: -5px; left: 9px; width: 6px; height: 6px; background: #e0a800; border-radius: 50%; }  /* handle */
+.default .bell::after { content: ""; position: absolute; bottom: -3px; left: 8px; width: 8px; height: 5px; background: #c8901a; border-radius: 0 0 4px 4px; }  /* clapper */
+.default .leg { background: #3b4a63; }
+.default .leg::after { content: ""; position: absolute; bottom: -4px; left: -1px; width: 20px; height: 10px; background: #2b3648; border-radius: 4px; }
+
+/* ---------- Image mascots (e.g. doctor) ---------- */
+.mascot .sprite {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 234px;
+  width: auto;
+  filter: drop-shadow(0 6px 6px rgba(0, 0, 0, .28));
+}
+/* Image mascots have no separate limbs, so sell the walk with whole-body sway. */
+.char.img-mascot.walking { animation: walkStep .45s ease-in-out infinite; }
+@keyframes walkStep {
+  0%   { transform: translateY(0)    rotate(-2.5deg); }
+  25%  { transform: translateY(-8px) rotate(0deg); }
+  50%  { transform: translateY(0)    rotate(2.5deg); }
+  75%  { transform: translateY(-8px) rotate(0deg); }
+  100% { transform: translateY(0)    rotate(-2.5deg); }
+}
 
 /* ---------- Sparkles ---------- */
 .sparkle { position: absolute; font-size: 22px; pointer-events: none; animation: floatUp 1s ease-out forwards; }

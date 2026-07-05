@@ -28,8 +28,14 @@ function setPose(pose) {
 
 function setMascot(m) {
   activeMascot = m;
-  document.querySelectorAll('.mascot').forEach((el) =>
-    el.classList.toggle('active', el.dataset.mascot === m));
+  let isImage = false;
+  document.querySelectorAll('.mascot').forEach((el) => {
+    const on = el.dataset.mascot === m;
+    el.classList.toggle('active', on);
+    if (on) isImage = !!el.querySelector('.sprite');
+  });
+  // Image mascots animate as a whole body (no separate limbs).
+  char.classList.toggle('img-mascot', isImage);
 }
 
 async function walkIn() {
@@ -56,15 +62,18 @@ async function walkOut() {
   window.buddy.setInteractive(false);
 }
 
+let hideTimer = null;
 function showBubble(text, withButtons = false) {
+  clearTimeout(hideTimer);        // cancel any pending hide so it can't vanish
   bubbleText.innerHTML = text;
   document.getElementById('buttons').style.display = withButtons ? 'flex' : 'none';
   bubble.classList.remove('hidden');
   requestAnimationFrame(() => bubble.classList.add('show'));
 }
 function hideBubble() {
+  clearTimeout(hideTimer);
   bubble.classList.remove('show');
-  setTimeout(() => bubble.classList.add('hidden'), 250);
+  hideTimer = setTimeout(() => bubble.classList.add('hidden'), 250);
 }
 
 function sparkle() {
@@ -134,7 +143,6 @@ async function onAnswer(answer) {
 
   if (answer === 'yes') {
     const { count, goal, streak } = await window.buddy.respond(id, 'yes');
-    hideBubble();
     sparkle();
     setPose('happy');
     sfx('yes');
@@ -142,14 +150,13 @@ async function onAnswer(answer) {
     showBubble(done
       ? `Yay! All done! 🎉<br><small>🔥 ${streak}-day streak</small>`
       : `Yay! ${count} / ${goal} 💪<br><small>Keep it up!</small>`);
-    await wait(2200);
+    await wait(1300);
   } else {
     await window.buddy.respond(id, 'snooze');
-    hideBubble();
     setPose('sad');
     sfx('snooze');
     showBubble(`Okay... I'll be back soon 💤`);
-    await wait(1800);
+    await wait(1400);
   }
 
   await walkOut();
