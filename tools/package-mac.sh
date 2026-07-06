@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds a distributable macOS .dmg for Water Reminder.
+# Builds a distributable macOS .dmg for Nudge.
 #
 # The app is unsigned (no paid Apple Developer account), so we deep ad-hoc
 # sign it — that lets it launch on Apple Silicon once the recipient removes
