@@ -1,5 +1,7 @@
 # itch.io listing copy for Nudge
 
+**Live page:** https://xcel24.itch.io/nudge-a-desktop-buddy-for-your-daily-habits
+
 Paste the sections below into the matching fields when you create the itch.io page.
 
 ---

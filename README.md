@@ -11,7 +11,7 @@ interval, prompt, and **mascot**.
 
 ## ⬇️ Download & install
 
-Grab the latest build from the [**Releases page**](../../releases).
+Get it on **[itch.io](https://xcel24.itch.io/nudge-a-desktop-buddy-for-your-daily-habits)**, or grab the latest build from the [**Releases page**](../../releases).
 
 Nudge is a **macOS** app and is **not code-signed** (that requires a paid Apple
 Developer account), so macOS will show a one-time "unverified developer" warning.
